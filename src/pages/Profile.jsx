@@ -506,8 +506,13 @@ const saveCoverPhoto = async (file) => {
   saveProfilePhoto(file);
 }}
 
-  onUploadCoverPhoto={(file) => {
-  saveCoverPhoto(file);
+  onUploadCoverPhoto={(mode) => {
+  setUploadTarget({
+    type: "coverPhoto",
+    mode,
+  });
+
+  setEditing(true);
 }}
 />
 </Suspense>
