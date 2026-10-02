@@ -19,13 +19,31 @@ export default function StoryMusicUploader() {
 
       const token = localStorage.getItem("token");
 
-      // Get signed URL
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+
+      // Get authenticated R2 signed upload URL.
       const signedRes = await fetch(
-        `${API_BASE}/api/r2/signed-url?contentType=${audio.type}`
+        `${API_BASE}/api/r2/signed-url?contentType=${encodeURIComponent(
+          audio.type
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
       const signedData = await signedRes.json();
 
+      if (!signedRes.ok || !signedData.success) {
+        throw new Error(
+          signedData.error || "Failed to get upload URL"
+        );
+      }
+
+      // Upload audio directly to R2.
       await axios.put(
         signedData.uploadUrl,
         audio,
@@ -36,7 +54,7 @@ export default function StoryMusicUploader() {
         }
       );
 
-      // Save music record
+      // Save music record.
       const res = await fetch(
         `${API_BASE}/api/story-music-admin`,
         {
@@ -54,7 +72,11 @@ export default function StoryMusicUploader() {
       );
 
       if (!res.ok) {
-        throw new Error("Upload failed");
+        const data = await res.json().catch(() => ({}));
+
+        throw new Error(
+          data.error || "Failed to save music record"
+        );
       }
 
       alert("Music uploaded");
@@ -62,10 +84,9 @@ export default function StoryMusicUploader() {
       setTitle("");
       setArtist("");
       setAudio(null);
-
     } catch (err) {
       console.error(err);
-      alert("Upload failed");
+      alert(err.message || "Upload failed");
     } finally {
       setLoading(false);
     }
@@ -101,7 +122,7 @@ export default function StoryMusicUploader() {
         type="file"
         accept="audio/*"
         onChange={(e) =>
-          setAudio(e.target.files[0])
+          setAudio(e.target.files[0] || null)
         }
         className="mb-3"
       />
