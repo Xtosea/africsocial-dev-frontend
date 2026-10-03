@@ -36,110 +36,25 @@ export default function StoryMusicUploader() {
       }
 
       // ============================================================
-      // STEP 1: GET SIGNED R2 URL
+      // STEP 2: UPLOAD AUDIO THROUGH AFRICSOCIAL WORKER
       // ============================================================
 
-      const signedUrl =
-        `${API_BASE}/api/r2/signed-url?contentType=` +
-        encodeURIComponent(audio.type);
+      console.log("[StoryMusic] STEP 2: Uploading audio through Worker");
 
-      console.log("[StoryMusic] STEP 1: Requesting signed URL");
-      console.log("[StoryMusic] STEP 1 URL:", signedUrl);
-
-      let signedRes;
+      let uploadData = {};
 
       try {
-        signedRes = await fetch(signedUrl, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const uploadUrl = `${API_BASE}/api/r2/story-music-upload`;
 
-        console.log(
-          "[StoryMusic] STEP 1 HTTP status:",
-          signedRes.status
-        );
+        console.log("[StoryMusic] STEP 2 URL:", uploadUrl);
 
-        console.log(
-          "[StoryMusic] STEP 1 response URL:",
-          signedRes.url
-        );
-      } catch (error) {
-        console.error(
-          "[StoryMusic] STEP 1 NETWORK ERROR:",
-          error
-        );
-
-        console.error(
-          "[StoryMusic] STEP 1 error name:",
-          error?.name
-        );
-
-        console.error(
-          "[StoryMusic] STEP 1 error message:",
-          error?.message
-        );
-
-        throw new Error(
-          `STEP 1 failed: ${error?.message || "Network error"}`
-        );
-      }
-
-      let signedData;
-
-      try {
-        signedData = await signedRes.json();
-
-        console.log(
-          "[StoryMusic] STEP 1 response body:",
-          signedData
-        );
-      } catch (error) {
-        console.error(
-          "[StoryMusic] STEP 1 JSON parse failed:",
-          error
-        );
-
-        throw new Error(
-          `STEP 1 failed: Server returned invalid JSON (HTTP ${signedRes.status})`
-        );
-      }
-
-      if (!signedRes.ok || !signedData.success) {
-        console.error(
-          "[StoryMusic] STEP 1 FAILED:",
-          signedData
-        );
-
-        throw new Error(
-          signedData.error ||
-            `Failed to get upload URL (HTTP ${signedRes.status})`
-        );
-      }
-
-      console.log(
-        "[StoryMusic] STEP 1 SUCCESS: Signed URL received"
-      );
-
-      console.log(
-        "[StoryMusic] R2 file URL:",
-        signedData.fileUrl
-      );
-
-      // ============================================================
-      // STEP 2: UPLOAD AUDIO DIRECTLY TO R2
-      // ============================================================
-
-      console.log("[StoryMusic] STEP 2: Uploading audio to R2");
-
-      try {
-        const r2Response = await axios.put(
-          signedData.uploadUrl,
+        const uploadResponse = await axios.put(
+          uploadUrl,
           audio,
           {
             headers: {
               "Content-Type": audio.type,
+              Authorization: `Bearer ${token}`,
             },
 
             // Prevent Axios from transforming the File object.
@@ -163,15 +78,34 @@ export default function StoryMusicUploader() {
 
         console.log(
           "[StoryMusic] STEP 2 HTTP status:",
-          r2Response.status
+          uploadResponse.status
+        );
+
+        uploadData = uploadResponse.data;
+
+        console.log(
+          "[StoryMusic] STEP 2 response body:",
+          uploadData
+        );
+
+        if (!uploadResponse.data?.success || !uploadResponse.data?.fileUrl) {
+          throw new Error(
+            uploadResponse.data?.error ||
+              "Worker did not return an uploaded file URL"
+          );
+        }
+
+        console.log(
+          "[StoryMusic] STEP 2 SUCCESS: Audio uploaded to R2 through Worker"
         );
 
         console.log(
-          "[StoryMusic] STEP 2 SUCCESS: Audio uploaded to R2"
+          "[StoryMusic] R2 file URL:",
+          uploadResponse.data.fileUrl
         );
       } catch (error) {
         console.error(
-          "[StoryMusic] STEP 2 FAILED: R2 upload error"
+          "[StoryMusic] STEP 2 FAILED: Worker R2 upload error"
         );
 
         console.error(
@@ -216,7 +150,9 @@ export default function StoryMusicUploader() {
 
         throw new Error(
           `STEP 2 failed: ${
-            error?.message || "R2 network error"
+            error?.response?.data?.error ||
+            error?.message ||
+            "Worker R2 upload error"
           }`
         );
       }
@@ -248,7 +184,7 @@ export default function StoryMusicUploader() {
           body: JSON.stringify({
             title,
             artist,
-            audioUrl: signedData.fileUrl,
+            audioUrl: uploadData.fileUrl,
           }),
         });
 
