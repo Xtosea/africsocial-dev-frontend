@@ -285,7 +285,7 @@ const link = newPost.match(urlRegex)?.[0] || null;
       const {
         videoUrl,
         thumbnailBlob,
-      } = await uploadVideo(file);
+      } = await uploadVideo(file, token);
 
       const thumbnailFile = new File(
         [thumbnailBlob],
