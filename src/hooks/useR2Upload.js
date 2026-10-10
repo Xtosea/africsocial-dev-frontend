@@ -21,6 +21,17 @@ export const useR2Upload = () => {
       throw new Error("Authentication token missing");
     }
 
+    // ================= START THUMBNAIL EARLY =================
+
+    // Generate the thumbnail while the signed-URL request and
+    // video upload are in progress. Thumbnail failure is non-fatal.
+    console.log("🖼️ Starting video thumbnail generation...");
+
+    const thumbnailPromise = generateThumbnail(file).catch((error) => {
+      console.warn("Video thumbnail generation failed:", error);
+      return null;
+    });
+
     // ================= GET SIGNED URL =================
 
     const signedUrlEndpoint =
@@ -105,11 +116,10 @@ export const useR2Upload = () => {
 
     console.log("✅ Video uploaded to R2:", data.fileUrl);
 
-    // ================= GENERATE THUMBNAIL =================
+    // ================= GET THUMBNAIL RESULT =================
 
-    console.log("🖼️ Generating video thumbnail...");
-
-    const thumbnailBlob = await generateThumbnail(file);
+    // Thumbnail generation has been running during the upload.
+    const thumbnailBlob = await thumbnailPromise;
 
     // ================= RETURN VIDEO + THUMB =================
 
