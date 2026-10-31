@@ -20,7 +20,7 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,png,svg,jpg}"],
       },
       manifest: {
-        name: "AfriBook",
+        name: "AfricBook",
         short_name: "AfriBook",
         description: "AfriBook social media platform",
         theme_color: "#000000",
