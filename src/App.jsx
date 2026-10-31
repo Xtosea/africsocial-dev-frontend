@@ -9,6 +9,8 @@ import AdminRoute from "./components/AdminRoute";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import DeleteAccount from "./pages/DeleteAccount";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile.jsx";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -16,10 +18,10 @@ import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
 import VerifySuccess from "./pages/VerifySuccess";
 import VerifyFailed from "./pages/VerifyFailed";
-import CreatePost from "./pages/CreatePost";
+
 import Reels from "./pages/Reels";
 import Messages from "./pages/Messages";
-import Chat from "./pages/Chat";
+
 import WelcomeOnboarding from "./pages/WelcomeOnboarding";
 import SyncContacts from "./pages/SyncContacts";
 import EditProfile from "./pages/EditProfile";
@@ -31,7 +33,7 @@ import FriendsList from "./pages/friends/FriendsList";
 import FriendSuggestions from "./pages/friends/FriendSuggestions";
 import Wallet from "./pages/Wallet";
 import Leaderboard from "./pages/Leaderboard";
-import PostPage from "./pages/PostPage";
+
 import SavedPosts from "./pages/SavedPosts";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -63,6 +65,7 @@ from "./pages/admin/AdminEarnings";
 import AdminWallet
 from "./pages/admin/AdminWallet";
 import AdminKyc from "./pages/admin/AdminKyc";
+import AdminAccountDeletions from "./pages/admin/AdminAccountDeletions";
 import CreatorDashboard
 from "./pages/creator/CreatorDashboard";
 
@@ -174,6 +177,8 @@ useEffect(() => {
 
       <Routes>
             {/* PUBLIC */}
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/delete-account" element={<DeleteAccount />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -253,6 +258,10 @@ useEffect(() => {
 <Route path="/admin/revenue" element={<AdminRoute><AdminRevenue /></AdminRoute>} />
 <Route path="/admin/wallet" element={<AdminRoute><AdminWallet /></AdminRoute>} />
         <Route path="/admin/kyc" element={<AdminRoute><AdminKyc /></AdminRoute>} />
+<Route
+  path="/admin/account-deletions"
+  element={<AdminRoute><AdminAccountDeletions /></AdminRoute>}
+/>
 <Route
   path="/creator"
   element={<CreatorDashboard />}
@@ -359,7 +368,7 @@ useEffect(() => {
             <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/profile/:userId" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/create" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+            
             <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
             <Route
   path="/messages/:id?"
@@ -371,7 +380,7 @@ useEffect(() => {
 />
 
 
-            <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+            
             <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
 
             <Route path="/add-friends" element={<ProtectedRoute><AddFriends /></ProtectedRoute>} />
