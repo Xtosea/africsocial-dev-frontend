@@ -8,6 +8,8 @@ export function use2Upload() {
   const [error, setError] = useState(null);
 
   const uploadFile = async (file) => {
+    let uploadStage = "initialization";
+
     try {
       setLoading(true);
       setProgress(0);
@@ -32,6 +34,7 @@ export function use2Upload() {
       }
 
       // Request an authenticated Reel upload URL.
+      uploadStage = "requesting_signed_url";
       const signedRes = await fetch(
         `${API_BASE}/api/r2/video-signed-url?contentType=${encodeURIComponent(file.type)}`,
         {
@@ -66,6 +69,14 @@ export function use2Upload() {
       }
 
       // Upload directly to Cloudflare R2.
+      const uploadTarget = new URL(signedData.uploadUrl);
+      console.info("Reel R2 upload target:", {
+        hostname: uploadTarget.hostname,
+        contentType: file.type,
+        fileSize: file.size,
+      });
+
+      uploadStage = "uploading_to_r2";
       const uploadRes = await axios.put(
         signedData.uploadUrl,
         file,
@@ -103,7 +114,13 @@ export function use2Upload() {
         err.message ||
         "Reel upload failed";
 
-      console.error("Reel media upload error:", err);
+      console.error("Reel media upload failed:", {
+        stage: uploadStage,
+        message,
+        code: err.code || null,
+        httpStatus: err.response?.status || null,
+        responseData: err.response?.data || null,
+      });
       setError(message);
 
       throw new Error(message);
