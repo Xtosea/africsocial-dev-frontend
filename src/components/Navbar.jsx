@@ -69,9 +69,13 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   
   const [showSettings, setShowSettings] = useState(false);
+  const [privacySaving, setPrivacySaving] = useState(false);
+  const [privacyError, setPrivacyError] = useState("");
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const notificationIdsRef = useRef(new Set());
+  const fetchNotificationsRef = useRef(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
 const [showSearch, setShowSearch] = useState(false);
 
@@ -82,9 +86,46 @@ const {
   token,
   isLoggedIn,
   logout,
+  updateCurrentUser,
 } = useAuth();
 
 const currentUserId = currentUser?._id;
+
+const handleToggleAccountPrivacy = async () => {
+  if (!currentUserId || !token || privacySaving) return;
+
+  const nextValue = currentUser?.isPrivate !== true;
+  setPrivacySaving(true);
+  setPrivacyError("");
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/users/${currentUserId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isPrivate: nextValue }),
+      }
+    );
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || result.message || "Could not update account privacy."
+      );
+    }
+
+    updateCurrentUser({ isPrivate: nextValue });
+  } catch (error) {
+    setPrivacyError(error.message || "Could not update account privacy.");
+  } finally {
+    setPrivacySaving(false);
+  }
+};
 
   const isActive = (path) => location.pathname === path;
 
@@ -102,7 +143,27 @@ const currentUserId = currentUser?._id;
     if (socket.connected) joinUser();
     socket.on("connect", joinUser);
 
+    const refreshNotifications = () => {
+      fetchNotificationsRef.current?.();
+    };
+
+    socket.on("reconnect", refreshNotifications);
+
     socket.on("new-notification", (data) => {
+      const notificationKey = data?._id
+        ? `id:${data._id}`
+        : data?.callId
+          ? `call:${data.callId}`
+          : null;
+
+      if (notificationKey && notificationIdsRef.current.has(notificationKey)) {
+        return;
+      }
+
+      if (notificationKey) {
+        notificationIdsRef.current.add(notificationKey);
+      }
+
       setNotifications((prev) => [data, ...prev].slice(0, 50));
       setUnreadCount((c) => c + 1);
     });
@@ -111,6 +172,7 @@ const currentUserId = currentUser?._id;
 
     return () => {
       socket.off("connect", joinUser);
+      socket.off("reconnect", refreshNotifications);
       socket.off("new-notification");
       socket.off("online-users");
     };
@@ -157,9 +219,37 @@ const currentUserId = currentUser?._id;
               nData
             );
 
-            setNotifications(
-              Array.isArray(nData) ? nData : []
-            );
+            const apiNotifications = Array.isArray(nData) ? nData : [];
+
+            apiNotifications.forEach((item) => {
+              const key = item?._id
+                ? `id:${item._id}`
+                : item?.callId
+                  ? `call:${item.callId}`
+                  : null;
+
+              if (key) notificationIdsRef.current.add(key);
+            });
+
+            setNotifications((prev) => {
+              const merged = [];
+              const seen = new Set();
+
+              [...apiNotifications, ...prev].forEach((item) => {
+                const key = item?._id
+                  ? `id:${item._id}`
+                  : item?.callId
+                    ? `call:${item.callId}`
+                    : null;
+
+                if (key && seen.has(key)) return;
+                if (key) seen.add(key);
+
+                merged.push(item);
+              });
+
+              return merged.slice(0, 50);
+            });
           } else {
             console.error(
               "NOTIFICATIONS API ERROR:",
@@ -223,7 +313,12 @@ const currentUserId = currentUser?._id;
       }
     };
 
+    fetchNotificationsRef.current = fetchData;
     fetchData();
+
+    return () => {
+      fetchNotificationsRef.current = null;
+    };
   }, []);
 
   // ================= OUTSIDE CLICK =================
@@ -349,13 +444,61 @@ const currentUserId = currentUser?._id;
       </button>
 
       {showSettings && (
-        <div className="absolute right-0 mt-2 w-48 bg-white border shadow rounded-lg">
+        <div className="absolute right-0 mt-2 w-64 bg-white border shadow rounded-lg">
+          <div className="px-3 py-3 border-b">
+            <p className="text-sm font-semibold">
+              Account privacy
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {currentUser?.isPrivate === true
+                ? "Private account"
+                : "Public account"}
+            </p>
+            <button
+              type="button"
+              onClick={handleToggleAccountPrivacy}
+              disabled={privacySaving}
+              className="mt-2 w-full rounded-md bg-gray-100 px-3 py-2 text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
+            >
+              {privacySaving
+                ? "Saving..."
+                : currentUser?.isPrivate === true
+                  ? "Make account public"
+                  : "Make account private"}
+            </button>
+            {privacyError && (
+              <p className="mt-2 text-xs text-red-600" role="alert">
+                {privacyError}
+              </p>
+            )}
+          </div>
           <Link
             to="/privacy"
             onClick={() => setShowSettings(false)}
             className="block w-full text-left px-3 py-2 hover:bg-gray-100"
           >
             Privacy Policy
+          </Link>
+          <Link
+            to="/community-guidelines"
+            onClick={() => setShowSettings(false)}
+            className="block w-full text-left px-3 py-2 hover:bg-gray-100"
+          >
+            Community Guidelines
+          </Link>
+          <Link
+            to="/about"
+            onClick={() => setShowSettings(false)}
+            className="block w-full text-left px-3 py-2 hover:bg-gray-100"
+          >
+            <Building2 size={16} /> About AfricSocial
+          </Link>
+          <Link
+            to="/contact"
+            onClick={() => setShowSettings(false)}
+            className="block w-full text-left px-3 py-2 hover:bg-gray-100"
+          >
+            <MessageCircle size={16} /> Contact Us
           </Link>
           <Link
             to="/delete-account"
@@ -449,7 +592,9 @@ const currentUserId = currentUser?._id;
       </h3>
 
       <p className="text-sm text-gray-500">
-        🌎 Public
+        {currentUser?.isPrivate === true
+          ? "🔒 Private account"
+          : "🌎 Public account"}
       </p>
     </div>
    </div>
@@ -702,7 +847,59 @@ const currentUserId = currentUser?._id;
     <span className="mt-2 text-sm font-medium">Saved</span>
   </Link>
 
+  <Link
+    to="/community-guidelines"
+    onClick={() => setMobileOpen(false)}
+    className="flex flex-col items-center justify-center rounded-xl p-4 bg-gray-50 hover:bg-gray-100"
+  >
+    <Users size={30} className="text-emerald-600" />
+    <span className="mt-2 text-sm font-medium text-center">Community Guidelines</span>
+  </Link>
+  <Link
+    to="/about"
+    onClick={() => setMobileOpen(false)}
+    className="flex flex-col items-center justify-center rounded-xl p-4 bg-gray-50 hover:bg-gray-100"
+  >
+    <Building2 size={30} className="text-green-600" />
+    <span className="mt-2 text-sm font-medium text-center">About AfricSocial</span>
+  </Link>
+  <Link
+    to="/contact"
+    onClick={() => setMobileOpen(false)}
+    className="flex flex-col items-center justify-center rounded-xl p-4 bg-gray-50 hover:bg-gray-100"
+  >
+    <MessageCircle size={30} className="text-blue-600" />
+    <span className="mt-2 text-sm font-medium text-center">Contact Us</span>
+  </Link>
 
+
+
+</div>
+
+<div className="mt-5 rounded-xl border p-4">
+  <p className="font-semibold text-sm">Account privacy</p>
+  <p className="text-xs text-gray-500 mt-1">
+    {currentUser?.isPrivate === true
+      ? "Only accepted friends can see your posts."
+      : "Your public posts can be seen by everyone."}
+  </p>
+  <button
+    type="button"
+    onClick={handleToggleAccountPrivacy}
+    disabled={privacySaving}
+    className="w-full mt-3 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 py-3 rounded-xl font-semibold text-sm"
+  >
+    {privacySaving
+      ? "Saving..."
+      : currentUser?.isPrivate === true
+        ? "Make account public"
+        : "Make account private"}
+  </button>
+  {privacyError && (
+    <p className="mt-2 text-xs text-red-600" role="alert">
+      {privacyError}
+    </p>
+  )}
 </div>
 
 <button
