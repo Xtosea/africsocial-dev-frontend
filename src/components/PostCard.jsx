@@ -243,7 +243,7 @@ const [mediaOrientation, setMediaOrientation] =
     try {
 
      
-  const url = `https://africsocial.globelynks.com/post/${post._id}`;
+  const url = `https://africsocial-api-dev.xto1971.workers.dev/post/${post._id}`;
 
       const text =
         post?.content ||

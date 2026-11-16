@@ -225,7 +225,7 @@ const PostMenu = ({
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(
-        `${window.location.origin}/post/${post._id}`
+        `https://africsocial-api-dev.xto1971.workers.dev/post/${post._id}`
       );
 
       toast.success("Link copied");
