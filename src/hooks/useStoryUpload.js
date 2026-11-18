@@ -3,260 +3,194 @@ import { compressStoryMedia } from "../utils/compressStoryMedia";
 import useR2StoryMusic from "./r2StoryMusic";
 import { API_BASE } from "../api/api";
 
-
-
 export function useStoryUpload() {
-
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState(null);
 
-  const {
-    uploadMusic,
-  } = useR2StoryMusic();
+  const { uploadMusic } = useR2StoryMusic();
 
+  const uploadStory = async (input) => {
+    const options =
+      typeof File !== "undefined" && input instanceof File
+        ? { file: input }
+        : (input || {});
 
-  const uploadStory = async ({
-  file,
-  cloudinaryUrl,
-  textStyle,
-  text,
-  music,
-  stickers,
-  backgroundColor,
-  
-}) => {
+    let {
+      file,
+      cloudinaryUrl,
+      thumbnailUrl,
+      thumbnailFile,
+      textStyle,
+      text,
+      music,
+      stickers,
+      backgroundColor,
+    } = options;
 
-
-//DEBUGGING ONLY 
-  console.log("FILE:", file);
-  console.log("CLOUDINARY:", cloudinaryUrl);
-  console.log("TEXT:", text);
-
-  try {
-    
-
+    try {
       setLoading(true);
       setProgress(0);
       setError(null);
 
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        throw new Error("Please log in before uploading a Story.");
+      }
 
       let musicData = null;
 
-
-
-      // MUSIC → R2
-      if (music instanceof File) {
+      // Preserve the existing Story Music upload handling.
+      if (typeof File !== "undefined" && music instanceof File) {
         musicData = await uploadMusic(music);
-      } 
-      else if (music) {
+      } else if (music) {
         musicData = music;
       }
 
+      const media = [];
 
-
-      let media = [];
-
-
-// =========================
- // DEBUGGING ONLY 
- // 
-console.log("cloudinaryUrl =", cloudinaryUrl);
-console.log("file =", file);
-console.log("file type =", file?.type);
-
-
-
-      // =========================
-      // IMAGE FROM CLOUDINARY
-      // =========================
-
+      // Existing Cloudinary image path.
       if (cloudinaryUrl) {
-
         media.push({
           url: cloudinaryUrl,
           type: "image",
         });
-
       }
 
-
-
-      // =========================
-      // VIDEO / AUDIO TO R2
-      // =========================
-
+      // Ordinary Story media: image, video or audio.
       else if (file) {
-
-
         if (
+          !file.type.startsWith("image/") &&
           !file.type.startsWith("video/") &&
           !file.type.startsWith("audio/")
         ) {
-          throw new Error(
-            "Images must use Cloudinary"
-          );
+          throw new Error("Unsupported Story media type.");
         }
-
-
 
         file = await compressStoryMedia(file);
 
-//DEBUGGING ONLY 
-console.log("Getting signed URL...");
+        if (!file || !file.type) {
+          throw new Error("Story media processing failed.");
+        }
 
-  const signedRes = await fetch(
-  `${API_BASE}/api/r2/signed-url?contentType=${encodeURIComponent(file.type)}`
-);
+        const uploadResponse = await fetch(
+          `${API_BASE}/api/r2/story-upload`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": file.type,
+            },
+            body: file,
+          }
+        );
 
+        const uploadData = await uploadResponse.json();
 
-//DEBUGGING ONLY 
-console.log("Signed URL status:", signedRes.status);
-console.log("Signed URL endpoint:", signedRes.url);
-
-const signedData = await signedRes.json();
-
-
-//DEBUGGING ONLY 
-console.log("Signed URL response:", signedData);
-
-
-
-        if(
-          !signedRes.ok ||
-          !signedData.uploadUrl
-        ){
+        if (
+          !uploadResponse.ok ||
+          !uploadData.success ||
+          !uploadData.fileUrl ||
+          !uploadData.key
+        ) {
           throw new Error(
-            signedData.error ||
-            "Failed R2 upload"
+            uploadData.error || "Story media upload failed."
           );
         }
 
-//DEBUGGING ONLY 
-console.log("Uploading to R2...");
+        const mediaItem = {
+          url: uploadData.fileUrl,
+          key: uploadData.key,
+          type: file.type.startsWith("image/")
+            ? "image"
+            : file.type.startsWith("audio/")
+              ? "audio"
+              : "video",
+        };
 
-        const uploadRes = await fetch(signedData.uploadUrl, {
-  method: "PUT",
-  body: file,
-  headers: {
-    "Content-Type": file.type,
-  },
-});
+        if (
+          mediaItem.type === "video" &&
+          thumbnailFile instanceof Blob &&
+          thumbnailFile.size > 0
+        ) {
+          try {
+            const thumbnailResponse = await fetch(
+              `${API_BASE}/api/r2/story-upload`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": thumbnailFile.type || "image/jpeg",
+                },
+                body: thumbnailFile,
+              }
+            );
 
-console.log("Upload status:", uploadRes.status);
+            const thumbnailData = await thumbnailResponse.json();
 
-if (!uploadRes.ok) {
-  throw new Error("R2 upload failed");
-}
+            if (
+              !thumbnailResponse.ok ||
+              !thumbnailData.success ||
+              !thumbnailData.fileUrl ||
+              !thumbnailData.key
+            ) {
+              throw new Error(
+                thumbnailData.error || "Story thumbnail upload failed."
+              );
+            }
 
-console.log("Upload finished.");
-
-//DEBUGGING ONLY 
-console.log("Saving story...");
-
-        media.push({
-
-          url: signedData.fileUrl,
-
-          type:
-            file.type.startsWith("audio/")
-            ? "audio"
-            : "video"
-
-        });
-
-      }
-
-
-
-
-      // =========================
-      // SAVE STORY
-      // =========================
-
-      const token =
-        localStorage.getItem("token");
-
-//DEBUGGING ONLY 
-//console.log("MEDIA BEFORE SAVE:", media);
-//console.log("TEXT BEFORE SAVE:", text);
-//console.log("MUSIC BEFORE SAVE:", musicData);
-
-
-
-      const res = await fetch(
-        `${API_BASE}/api/storyR2`,
-        {
-          method:"POST",
-
-          headers:{
-            "Content-Type":"application/json",
-
-            Authorization:
-              `Bearer ${token}`
-          },
-
-          
-  body: JSON.stringify({
-  text,
-  textStyle,
-  music: musicData,
-  stickers,
-  backgroundColor,
-  media,
-})
+            mediaItem.thumbnail = thumbnailData.fileUrl;
+            mediaItem.thumbnailKey = thumbnailData.key;
+          } catch (thumbnailError) {
+            console.warn(
+              "Story uploaded without an R2 thumbnail:",
+              thumbnailError
+            );
+          }
+        } else if (thumbnailUrl && mediaItem.type === "video") {
+          mediaItem.thumbnail = thumbnailUrl;
         }
-      );
 
-
-
-      const story =
-        await res.json();
-
- 
-//DEBUGGING ONLY 
- //console.log("Status:", res.status);
-  //console.log("Response:", story);
-
-console.log("Story save response:", story);
-
-
-
-      if(!res.ok){
-
-        throw new Error(
-          story.error ||
-          "Failed saving story"
-        );
-
+        media.push(mediaItem);
       }
 
+      // Save Story to the backend.
+      const response = await fetch(`${API_BASE}/api/storyR2`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          text,
+          textStyle,
+          music: musicData,
+          stickers,
+          backgroundColor,
+          media,
+        }),
+      });
+
+      const story = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          story.error || "Failed to save Story."
+        );
+      }
+
+      setProgress(100);
 
       return story;
-
-
-
-    } catch(err){
-
-      console.error(
-        "Story Upload Error:",
-        err
-      );
-
-      setError(err.message);
-
+    } catch (err) {
+      console.error("Story Upload Error:", err);
+      setError(err.message || "Story upload failed.");
       throw err;
-
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
-
-
 
   return {
     uploadStory,
@@ -264,5 +198,4 @@ console.log("Story save response:", story);
     progress,
     error,
   };
-
 }

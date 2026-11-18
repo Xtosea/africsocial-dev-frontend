@@ -198,7 +198,13 @@ const ReelCard = ({
           playsInline
           muted={hasMusic}
           loop
-          preload="metadata"
+          preload={
+            isActive
+              ? "auto"
+              : index === activeIndex + 1
+              ? "metadata"
+              : "none"
+          }
           autoPlay={isActive}
           poster={reel.media?.[0]?.thumbnailUrl}
           onPlay={handleVideoPlay}

@@ -9,7 +9,6 @@ import Draggable from "react-draggable";
 import { uploadToCloudinary }
 from "../../utils/uploadToCloudinary";
 
-import { uploadToR2 } from "../../utils/uploadToR2";
 import { generateVideoThumbnail } from "../../utils/generateVideoThumbnail";
 import StickerPicker from "../stickers/StickerPicker";
 import StoryStickerLayer from "../stickers/StoryStickerLayer";
@@ -214,65 +213,43 @@ setCloudinaryUrl(newUrl);
 
 // ================= POST STORY =================
 const handlePost = async () => {
-  let uploadedUrl = null;
-  let videoUrl = null;
   let type = "text";
+  let thumbnailFile = null;
 
   // VIDEO STORY
   if (media?.type?.startsWith("video")) {
     type = "video";
-
-    videoUrl = await uploadToR2(media);
-
-    const thumbnail = await generateVideoThumbnail(media);
-    const uploaded = await uploadToCloudinary(thumbnail);
-
-    uploadedUrl =
-      typeof uploaded === "string"
-        ? uploaded
-        : uploaded.url;
+    thumbnailFile = await generateVideoThumbnail(media);
   }
 
   // IMAGE STORY
   else if (media?.type?.startsWith("image")) {
-  type = "image";
-
-  uploadedUrl = cloudinaryUrl || preview;
-}
-
-  // TEXT STORY
-  else {
-    type = "text";
+    type = "image";
   }
 
+  // Send the original media to useStoryUpload.
+  // The hook handles the actual R2 upload.
   await onSelectFile({
-  file:
-    type === "video"
-      ? media
-      : null,
-
-  cloudinaryUrl:
-    type === "image"
-      ? uploadedUrl
-      : null,
-
-  text,
-
-  textStyle: {
-    x: textPosition.x,
-    y: textPosition.y,
-    fontSize: size,
-    color: textColor,
-    rotation: textRotation,
-  },
-
-  music,
-  stickers,
-  backgroundColor,
-});
+    file: type === "video" ? media : null,
+    cloudinaryUrl:
+      type === "image" ? cloudinaryUrl || preview : null,
+    thumbnailFile,
+    text,
+    textStyle: {
+      x: textPosition.x,
+      y: textPosition.y,
+      fontSize: size,
+      color: textColor,
+      rotation: textRotation,
+    },
+    music,
+    stickers,
+    backgroundColor,
+  });
 
   onClose();
 };
+
   // <-- THIS WAS MISSING
 
 useEffect(() => {

@@ -17,6 +17,7 @@ const Reels = () => {
   const [shares, setShares] = useState({});
 
   const [caption, setCaption] = useState("");
+  const [visibility, setVisibility] = useState("public");
   const [showUpload, setShowUpload] = useState(false);
   const [preview, setPreview] = useState(null);
 
@@ -77,7 +78,12 @@ const removeSticker = (id) => {
 
   const fetchReels = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/posts/reels`);
+      const currentToken = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/posts/reels`, {
+        headers: currentToken
+          ? { Authorization: `Bearer ${currentToken}` }
+          : {},
+      });
       const data = await res.json();
 
       console.log("REELS API STATUS:", res.status);
@@ -175,21 +181,7 @@ const removeSticker = (id) => {
     };
   }, [reels]);
 
-  /* ================= PRELOAD NEXT ================= */
-  useEffect(() => {
-    const next = reels[activeIndex + 1];
-    const prev = reels[activeIndex - 1];
 
-    [next, prev].forEach((r) => {
-      if (!r) return;
-
-      const link = document.createElement("link");
-      link.rel = "prefetch";
-      link.as = "video";
-      link.href = r.videoUrl || r.media?.[0]?.url;
-      document.head.appendChild(link);
-    });
-  }, [activeIndex, reels]);
 
 
 /* ================= MUSIC /STICKERS================= */
@@ -326,19 +318,25 @@ const uploadReel = async () => {
     // Upload video
 const { videoUrl } = await uploadFile(selectedFile);
 
-// Generate thumbnail
-const thumbnailBlob = await generateThumbnail(selectedFile);
+// Generate and upload thumbnail (optional)
+    let thumbnailUrl = "";
 
-// Convert Blob to File
-const thumbnailFile = new File(
-  [thumbnailBlob],
-  "thumbnail.jpg",
-  { type: "image/jpeg" }
-);
+    try {
+      const thumbnailBlob = await generateThumbnail(selectedFile);
 
-// Upload thumbnail
-const { videoUrl: thumbnailUrl } =
-  await uploadFile(thumbnailFile);
+      if (thumbnailBlob && thumbnailBlob.size > 0) {
+        const thumbnailFile = new File(
+          [thumbnailBlob],
+          "thumbnail.jpg",
+          { type: "image/jpeg" }
+        );
+
+        const uploadedThumbnail = await uploadFile(thumbnailFile);
+        thumbnailUrl = uploadedThumbnail?.videoUrl || "";
+      }
+    } catch (thumbnailError) {
+      console.warn("Reel thumbnail generation/upload failed:", thumbnailError);
+    }
 
     const res = await fetch(`${API_BASE}/api/posts/reels`, {
       method: "POST",
@@ -348,6 +346,7 @@ const { videoUrl: thumbnailUrl } =
       },
       body: JSON.stringify({
   caption,
+          visibility,
   videoUrl,
   thumbnailUrl,
   durationSeconds,
@@ -363,6 +362,7 @@ const { videoUrl: thumbnailUrl } =
     }
 
     setCaption("");
+    setVisibility("public");
     setPreview(null);
     setSelectedFile(null);
     setDurationSeconds(null);
@@ -447,6 +447,8 @@ shadow-lg
         <ReelUploadModal
   preview={preview}
   caption={caption}
+  visibility={visibility}
+  setVisibility={setVisibility}
   setCaption={setCaption}
 
   songs={songs}
