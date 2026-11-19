@@ -29,6 +29,15 @@ const [durationSeconds, setDurationSeconds] = useState(null);
 const [songs, setSongs] = useState([]);
 const [selectedSong, setSelectedSong] = useState(null);
 
+const [voiceOverFile, setVoiceOverFile] = useState(null);
+const [voiceOverDurationSeconds, setVoiceOverDurationSeconds] = useState(0);
+const [videoAdjustments, setVideoAdjustments] = useState({
+  brightness: 1,
+  contrast: 1,
+  saturation: 1,
+  sepia: 0,
+});
+
 const [stickers, setStickers] = useState([]);
 const [selectedStickers, setSelectedStickers] = useState([]);
 
@@ -354,6 +363,23 @@ const { videoUrl } = await uploadFile(selectedFile);
       console.warn("Reel thumbnail generation/upload failed:", thumbnailError);
     }
 
+    let voiceOver = null;
+
+    if (voiceOverFile) {
+      const uploadedVoiceOver = await uploadFile(voiceOverFile);
+
+      if (!uploadedVoiceOver?.videoUrl) {
+        throw new Error("Voice-over audio upload failed.");
+      }
+
+      voiceOver = {
+        audioUrl: uploadedVoiceOver.videoUrl,
+        contentType: voiceOverFile.type.split(";")[0].trim().toLowerCase(),
+        durationSeconds: voiceOverDurationSeconds,
+        volume: 1,
+      };
+    }
+
     const res = await fetch(`${API_BASE}/api/posts/reels`, {
       method: "POST",
       headers: {
@@ -368,6 +394,8 @@ const { videoUrl } = await uploadFile(selectedFile);
   durationSeconds,
 
   music: selectedSong,
+  voiceOver,
+  videoAdjustments,
   stickers: selectedStickers,
   location: reelLocation.trim(),
   taggedFriends: taggedFriendsInput
@@ -402,6 +430,14 @@ const { videoUrl } = await uploadFile(selectedFile);
     setDurationSeconds(null);
     setSelectedStickers([]);
     setSelectedSong(null);
+    setVoiceOverFile(null);
+    setVoiceOverDurationSeconds(0);
+    setVideoAdjustments({
+      brightness: 1,
+      contrast: 1,
+      saturation: 1,
+      sepia: 0,
+    });
     setEditorText("");
     setEditorTextPosition({ x: 500, y: 500 });
     setEditorTextColor("#FFFFFF");
@@ -500,6 +536,15 @@ shadow-lg
   songs={songs}
   selectedSong={selectedSong}
   setSelectedSong={setSelectedSong}
+  voiceOverFile={voiceOverFile}
+  voiceOverDurationSeconds={voiceOverDurationSeconds}
+  onVoiceOverRecorded={(file, duration) => {
+    setVoiceOverFile(file);
+    setVoiceOverDurationSeconds(duration);
+  }}
+  videoAdjustments={videoAdjustments}
+  setVideoAdjustments={setVideoAdjustments}
+  durationSeconds={durationSeconds}
 
   selectedStickers={selectedStickers}
   addSticker={addSticker}
@@ -529,6 +574,26 @@ shadow-lg
   setAllowDownload={setAllowDownload}
 
   fileRef={fileRef}
+
+  onVideoRecorded={async (file) => {
+    if (!file) return;
+
+    try {
+      const duration = await validateVideoDuration(file, 60);
+      setSelectedFile(file);
+      setDurationSeconds(duration);
+      setPreview(URL.createObjectURL(file));
+    } catch (err) {
+      setSelectedFile(null);
+      setDurationSeconds(null);
+      setPreview(null);
+      alert(
+        typeof err === "string"
+          ? err
+          : err?.message || "The recorded video is invalid."
+      );
+    }
+  }}
 
   handleFileChange={async (e) => {
     const file = e.target.files[0];

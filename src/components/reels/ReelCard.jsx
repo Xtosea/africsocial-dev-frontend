@@ -17,6 +17,7 @@ const ReelCard = ({
   const localRef = useRef(null);
   const videoRef = localRef;
   const audioRef = useRef(null);
+  const voiceOverRef = useRef(null);
 
   const [showHeart, setShowHeart] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
@@ -33,6 +34,19 @@ const ReelCard = ({
   const isActive = index === activeIndex;
   const musicUrl = reel.music?.audioUrl;
   const hasMusic = Boolean(musicUrl);
+  const voiceOverUrl = reel.voiceOver?.audioUrl;
+  const hasVoiceOver = Boolean(voiceOverUrl);
+  const voiceOverVolume = Math.max(
+    0,
+    Math.min(1, Number(reel.voiceOver?.volume ?? 1))
+  );
+  const adjustments = reel.videoAdjustments || {};
+  const videoFilter = [
+    `brightness(${Math.max(0.5, Math.min(1.5, Number(adjustments.brightness ?? 1)))} )`,
+    `contrast(${Math.max(0.5, Math.min(1.5, Number(adjustments.contrast ?? 1)))} )`,
+    `saturate(${Math.max(0, Math.min(2, Number(adjustments.saturation ?? 1)))} )`,
+    `sepia(${Math.max(0, Math.min(1, Number(adjustments.sepia ?? 0)))} )`,
+  ].join(" ");
 
   useEffect(() => {
     const video = videoRef.current;
@@ -81,6 +95,30 @@ const ReelCard = ({
     }
   };
 
+  const syncVoiceOver = (video) => {
+    const audio = voiceOverRef.current;
+
+    if (!audio || !hasVoiceOver || !isActive || !video || video.paused) {
+      audio?.pause();
+      return;
+    }
+
+    audio.volume = voiceOverVolume;
+
+    if (
+      Number.isFinite(video.currentTime) &&
+      Math.abs(audio.currentTime - video.currentTime) > 0.5
+    ) {
+      try {
+        audio.currentTime = video.currentTime;
+      } catch {
+        // Wait until voice-over metadata is available.
+      }
+    }
+
+    audio.play().catch(() => audio.pause());
+  };
+
   const toggleMusic = () => {
     const audio = audioRef.current;
     const video = videoRef.current;
@@ -107,11 +145,11 @@ const ReelCard = ({
   };
 
   const handleWatchTimeUpdate = (event) => {
-    if (qualifyingSentRef.current) return;
-
     const video = event.currentTarget;
     syncMusic(video);
+    syncVoiceOver(video);
 
+    if (qualifyingSentRef.current) return;
     if (video.paused || video.ended) return;
 
     const currentTime = Number(video.currentTime);
@@ -160,6 +198,7 @@ const ReelCard = ({
 
     recordView(reel._id);
     syncMusic(event.currentTarget);
+    syncVoiceOver(event.currentTarget);
   };
 
   const handleVideoPause = (event) => {
@@ -167,6 +206,7 @@ const ReelCard = ({
       Number(event.currentTarget.currentTime) || 0;
 
     audioRef.current?.pause();
+    voiceOverRef.current?.pause();
   };
 
   const handleDoubleTap = () => {
@@ -195,6 +235,7 @@ const ReelCard = ({
           data-has-music={hasMusic ? "true" : "false"}
           src={reel.media?.[0]?.url}
           className="h-full w-full object-cover"
+          style={{ filter: videoFilter }}
           playsInline
           muted={hasMusic}
           loop
@@ -218,6 +259,17 @@ const ReelCard = ({
             src={musicUrl}
             preload="metadata"
             loop
+          />
+        )}
+
+        {hasVoiceOver && (
+          <audio
+            ref={voiceOverRef}
+            src={voiceOverUrl}
+            preload="metadata"
+            onLoadedMetadata={(event) => {
+              event.currentTarget.volume = voiceOverVolume;
+            }}
           />
         )}
 

@@ -48,7 +48,7 @@ function ReelStickerItem({ sticker, width, height, onUpdate, onRemove }) {
               onMouseDown={(event) => event.stopPropagation()}
               onTouchStart={(event) => event.stopPropagation()}
               onClick={() => onRemove?.(sticker.id)}
-              className="rounded-full bg-red-600 px-2 py-1 text-xs text-white"
+              className="flex h-10 min-w-10 items-center justify-center rounded-full bg-red-600 px-3 text-sm font-bold text-white shadow-lg"
             >
               ✕
             </button>
@@ -63,7 +63,7 @@ function ReelStickerItem({ sticker, width, height, onUpdate, onRemove }) {
                   scale: clamp((sticker.scale || 1) - 0.2, 0.4, 3),
                 })
               }
-              className="rounded-full bg-white/20 px-2 py-1 text-xs text-white"
+              className="flex h-10 min-w-10 items-center justify-center rounded-full bg-black/80 px-3 text-base font-bold text-white shadow-lg ring-1 ring-white/30"
             >
               −
             </button>
@@ -78,7 +78,7 @@ function ReelStickerItem({ sticker, width, height, onUpdate, onRemove }) {
                   scale: clamp((sticker.scale || 1) + 0.2, 0.4, 3),
                 })
               }
-              className="rounded-full bg-white/20 px-2 py-1 text-xs text-white"
+              className="flex h-10 min-w-10 items-center justify-center rounded-full bg-black/80 px-3 text-base font-bold text-white shadow-lg ring-1 ring-white/30"
             >
               +
             </button>
@@ -93,7 +93,7 @@ function ReelStickerItem({ sticker, width, height, onUpdate, onRemove }) {
                   rotation: ((sticker.rotation || 0) + 15) % 360,
                 })
               }
-              className="rounded-full bg-white/20 px-2 py-1 text-xs text-white"
+              className="flex h-10 min-w-10 items-center justify-center rounded-full bg-black/80 px-3 text-base font-bold text-white shadow-lg ring-1 ring-white/30"
             >
               ↻
             </button>
@@ -159,6 +159,7 @@ export default function ReelStickerEditor({
   textColor = "#FFFFFF",
   textSize = 32,
   onTextPositionChange,
+  fullScreen = false,
 }) {
   const stageRef = useRef(null);
   const [stageSize, setStageSize] = useState({
@@ -186,7 +187,10 @@ export default function ReelStickerEditor({
   return (
     <div
       ref={stageRef}
-      className="relative mx-auto aspect-[9/16] w-full max-w-[240px] overflow-hidden rounded-xl border border-white/20 bg-black"
+      className={fullScreen
+        ? "relative h-full w-full overflow-hidden bg-black"
+        : "relative mx-auto aspect-[9/16] w-full max-w-[240px] overflow-hidden rounded-xl border border-white/20 bg-black"
+      }
     >
       <div className="absolute inset-0">
         {children}
