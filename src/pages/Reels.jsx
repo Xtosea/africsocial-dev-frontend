@@ -32,6 +32,22 @@ const [selectedSong, setSelectedSong] = useState(null);
 const [stickers, setStickers] = useState([]);
 const [selectedStickers, setSelectedStickers] = useState([]);
 
+  // Reel editing and publishing details
+  const [editorText, setEditorText] = useState("");
+  const [editorTextPosition, setEditorTextPosition] = useState({
+    x: 500,
+    y: 500,
+  });
+  const [editorTextColor, setEditorTextColor] = useState("#FFFFFF");
+  const [editorTextSize, setEditorTextSize] = useState(32);
+  const [reelLocation, setReelLocation] = useState("");
+  const [taggedFriendsInput, setTaggedFriendsInput] = useState("");
+  const [hashtagsInput, setHashtagsInput] = useState("");
+  const [allowComments, setAllowComments] = useState(true);
+  const [allowDuet, setAllowDuet] = useState(false);
+  const [allowRemix, setAllowRemix] = useState(false);
+  const [allowDownload, setAllowDownload] = useState(false);
+
 const addSticker = (sticker) => {
   setSelectedStickers((current) => {
     if (current.length >= 20) {
@@ -352,8 +368,26 @@ const { videoUrl } = await uploadFile(selectedFile);
   durationSeconds,
 
   music: selectedSong,
-
   stickers: selectedStickers,
+  location: reelLocation.trim(),
+  taggedFriends: taggedFriendsInput
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean),
+  tags: hashtagsInput
+    .split(/[,\s]+/)
+    .map((tag) => tag.replace(/^#/, "").trim())
+    .filter(Boolean),
+  editor: {
+    text: editorText,
+    textPosition: editorTextPosition,
+    textSize: editorTextSize,
+    textColor: editorTextColor,
+  },
+  allowComments,
+  allowDuet,
+  allowRemix,
+  allowDownload,
 }),
     });
 
@@ -367,6 +401,18 @@ const { videoUrl } = await uploadFile(selectedFile);
     setSelectedFile(null);
     setDurationSeconds(null);
     setSelectedStickers([]);
+    setSelectedSong(null);
+    setEditorText("");
+    setEditorTextPosition({ x: 500, y: 500 });
+    setEditorTextColor("#FFFFFF");
+    setEditorTextSize(32);
+    setReelLocation("");
+    setTaggedFriendsInput("");
+    setHashtagsInput("");
+    setAllowComments(true);
+    setAllowDuet(false);
+    setAllowRemix(false);
+    setAllowDownload(false);
     setShowUpload(false);
 
     fetchReels();
@@ -455,11 +501,32 @@ shadow-lg
   selectedSong={selectedSong}
   setSelectedSong={setSelectedSong}
 
-  stickers={stickers}
   selectedStickers={selectedStickers}
   addSticker={addSticker}
   updateSticker={updateSticker}
   removeSticker={removeSticker}
+  editorText={editorText}
+  setEditorText={setEditorText}
+  editorTextPosition={editorTextPosition}
+  setEditorTextPosition={setEditorTextPosition}
+  editorTextColor={editorTextColor}
+  setEditorTextColor={setEditorTextColor}
+  editorTextSize={editorTextSize}
+  setEditorTextSize={setEditorTextSize}
+  reelLocation={reelLocation}
+  setReelLocation={setReelLocation}
+  taggedFriendsInput={taggedFriendsInput}
+  setTaggedFriendsInput={setTaggedFriendsInput}
+  hashtagsInput={hashtagsInput}
+  setHashtagsInput={setHashtagsInput}
+  allowComments={allowComments}
+  setAllowComments={setAllowComments}
+  allowDuet={allowDuet}
+  setAllowDuet={setAllowDuet}
+  allowRemix={allowRemix}
+  setAllowRemix={setAllowRemix}
+  allowDownload={allowDownload}
+  setAllowDownload={setAllowDownload}
 
   fileRef={fileRef}
 

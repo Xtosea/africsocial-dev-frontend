@@ -104,14 +104,67 @@ function ReelStickerItem({ sticker, width, height, onUpdate, onRemove }) {
   );
 }
 
+function ReelTextOverlay({
+  text,
+  textPosition,
+  textColor,
+  textSize,
+  width,
+  height,
+  onPositionChange,
+}) {
+  const nodeRef = useRef(null);
+
+  if (!text || width <= 0 || height <= 0) return null;
+
+  const x = (Number(textPosition?.x ?? 500) / 1000) * width;
+  const y = (Number(textPosition?.y ?? 500) / 1000) * height;
+
+  return (
+    <Draggable
+      nodeRef={nodeRef}
+      bounds="parent"
+      position={{ x, y }}
+      onStop={(_, data) => {
+        onPositionChange?.({
+          x: Math.round(clamp(data.x / width, 0, 1) * 1000),
+          y: Math.round(clamp(data.y / height, 0, 1) * 1000),
+        });
+      }}
+    >
+      <div
+        ref={nodeRef}
+        className="absolute left-0 top-0 z-30 max-w-[90%] cursor-move break-words text-center font-bold drop-shadow-lg"
+        style={{
+          color: textColor || "#FFFFFF",
+          fontSize: `${textSize || 32}px`,
+          transform: "translate(-50%, -50%)",
+          touchAction: "none",
+          textShadow: "0 2px 5px rgba(0,0,0,0.85)",
+        }}
+      >
+        {text}
+      </div>
+    </Draggable>
+  );
+}
+
 export default function ReelStickerEditor({
   stickers = [],
   onUpdate,
   onRemove,
   children,
+  text = "",
+  textPosition = { x: 500, y: 500 },
+  textColor = "#FFFFFF",
+  textSize = 32,
+  onTextPositionChange,
 }) {
   const stageRef = useRef(null);
-  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const [stageSize, setStageSize] = useState({
+    width: 0,
+    height: 0,
+  });
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -139,17 +192,30 @@ export default function ReelStickerEditor({
         {children}
       </div>
 
-      {width > 0 && height > 0 &&
-        stickers.map((sticker) => (
-          <ReelStickerItem
-            key={sticker.id}
-            sticker={sticker}
+      {width > 0 && height > 0 && (
+        <>
+          {stickers.map((sticker) => (
+            <ReelStickerItem
+              key={sticker.id}
+              sticker={sticker}
+              width={width}
+              height={height}
+              onUpdate={onUpdate}
+              onRemove={onRemove}
+            />
+          ))}
+
+          <ReelTextOverlay
+            text={text}
+            textPosition={textPosition}
+            textColor={textColor}
+            textSize={textSize}
             width={width}
             height={height}
-            onUpdate={onUpdate}
-            onRemove={onRemove}
+            onPositionChange={onTextPositionChange}
           />
-        ))}
+        </>
+      )}
     </div>
   );
 }
