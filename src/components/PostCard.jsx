@@ -31,6 +31,9 @@ import {
 import { BadgeCheck } from "lucide-react";
 
 
+// Coordinates autoplay across all PostCards in the feed.
+let activeFeedVideo = null;
+
 const defaultProfile =
   "https://africsocial-api-dev.xto1971.workers.dev/uploads/profiles/default-profile.png";
 
@@ -366,106 +369,104 @@ const openMedia = (index) => {
 };
 
   // ================= VIDEO AUTOPLAY =================
-
   useEffect(() => {
+    if (!media.length) return undefined;
 
-    if (!media.length)
-      return;
+    const observedVideos = videoRefs.current.filter(Boolean);
 
-    observerRef.current =
-      new IntersectionObserver(
-        (entries) => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target;
+          const shouldPlay =
+            entry.isIntersecting && entry.intersectionRatio >= 0.7;
 
-          entries.forEach(
-            (entry) => {
+          if (!shouldPlay) {
+            video.pause();
+            video.muted = true;
 
-              const video =
-                entry.target;
-
-              if (
-                entry.isIntersecting &&
-                entry.intersectionRatio >=
-                  0.7
-              ) {
-
-                videoRefs.current.forEach(
-                  (v) => {
-
-                    if (
-                      v &&
-                      v !== video
-                    ) {
-
-                      v.pause();
-
-                      v.muted = true;
-
-                    }
-                  }
-                );
-
-                if (video.dataset.isReel === "true" && video.dataset.userPaused === "true") return;
-                  video.muted = video.dataset.isReel === "true"
-                    ? video.dataset.hasSeparateAudio === "true"
-                    : false;
-                  video.play().catch(() => {});
-
-              } else {
-                  video.pause();
-                  video.muted = true;
-                  if (video.dataset.isReel === "true") {
-                    video.dataset.userPaused = "false";
-                  }
-                }
+            if (video.dataset.isReel === "true") {
+              video.dispatchEvent(
+                new CustomEvent("reelvisibilitychange", {
+                  detail: { visible: false },
+                })
+              );
             }
-          );
-        },
-        {
-          threshold: [
-            0,
-            0.7,
-            1,
-          ],
-        }
-      );
 
-    videoRefs.current.forEach(
-      (v) => {
+            if (activeFeedVideo === video) {
+              activeFeedVideo = null;
+            }
 
-        if (
-          v &&
-          observerRef.current
-        ) {
+            return;
+          }
 
-          observerRef.current.observe(
-            v
-          );
+          if (activeFeedVideo && activeFeedVideo !== video) {
+            activeFeedVideo.pause();
+            activeFeedVideo.muted = true;
+          }
 
-        }
-      }
+          videoRefs.current.forEach((otherVideo) => {
+            if (otherVideo && otherVideo !== video) {
+              otherVideo.pause();
+              otherVideo.muted = true;
+            }
+          });
+
+          if (video.dataset.isReel === "true") {
+            video.muted = video.dataset.hasSeparateAudio === "true";
+
+            video.dispatchEvent(
+              new CustomEvent("reelvisibilitychange", {
+                detail: { visible: true },
+              })
+            );
+
+            if (video.dataset.userPaused === "true") {
+              if (activeFeedVideo === video) {
+                activeFeedVideo = null;
+              }
+              return;
+            }
+          } else {
+            video.muted = false;
+          }
+
+          activeFeedVideo = video;
+
+          video.play().catch(() => {
+            if (activeFeedVideo === video) {
+              activeFeedVideo = null;
+            }
+
+            if (video.dataset.isReel === "true") {
+              video.dispatchEvent(
+                new CustomEvent("reelplaybackblocked")
+              );
+            }
+          });
+        });
+      },
+      { threshold: [0, 0.7, 1] }
     );
 
+    observerRef.current = observer;
+    observedVideos.forEach((video) => observer.observe(video));
+
     return () => {
+      observer.disconnect();
 
-      if (
-        observerRef.current
-      ) {
+      observedVideos.forEach((video) => {
+        if (activeFeedVideo === video) {
+          video.pause();
+          video.muted = true;
+          activeFeedVideo = null;
+        }
+      });
 
-        videoRefs.current.forEach(
-          (v) => {
-
-            if (v) {
-
-              observerRef.current.unobserve(
-                v
-              );
-
-            }
-          }
-        );
+      if (observerRef.current === observer) {
+        observerRef.current = null;
       }
     };
-
   }, [media]);
 
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Play, Pause, Square, Volume2, VolumeX } from "lucide-react";
 
 const InlineReelMedia = ({ post, videoRef, onOpen }) => {
   const internalVideoRef = useRef(null);
@@ -248,18 +249,24 @@ const InlineReelMedia = ({ post, videoRef, onOpen }) => {
           onClick={isPlaying ? pauseVideo : playVideo}
           aria-label={isPlaying ? "Pause Reel" : "Play Reel"}
           aria-pressed={isPlaying}
-          className="min-h-11 rounded-full bg-black/75 px-4 py-2 text-sm font-medium text-white"
+          title={isPlaying ? "Pause" : "Play"}
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-lg backdrop-blur-md transition duration-200 hover:bg-black/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
-          {isPlaying ? "⏸ Pause" : "▶ Play"}
+          {isPlaying ? (
+            <Pause size={19} strokeWidth={2.4} />
+          ) : (
+            <Play size={19} strokeWidth={2.4} className="ml-0.5" />
+          )}
         </button>
 
         <button
           type="button"
           onClick={stopVideo}
           aria-label="Stop Reel and return to beginning"
-          className="min-h-11 rounded-full bg-black/75 px-4 py-2 text-sm font-medium text-white"
+          title="Stop"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-lg backdrop-blur-md transition duration-200 hover:bg-black/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
-          ■ Stop
+          <Square size={16} strokeWidth={2.4} />
         </button>
       </div>
 
@@ -269,9 +276,14 @@ const InlineReelMedia = ({ post, videoRef, onOpen }) => {
           onClick={toggleMusic}
           aria-label={musicEnabled ? "Turn Reel music off" : "Turn Reel music on"}
           aria-pressed={musicEnabled}
-          className="absolute right-3 top-3 z-20 min-h-11 rounded-full bg-black/75 px-3 py-2 text-sm text-white"
+          title={musicEnabled ? "Turn music off" : "Turn music on"}
+          className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-lg backdrop-blur-md transition duration-200 hover:bg-black/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
-          {musicEnabled ? "🔊 Music on" : "🔇 Music off"}
+          {musicEnabled ? (
+            <Volume2 size={19} strokeWidth={2.2} />
+          ) : (
+            <VolumeX size={19} strokeWidth={2.2} />
+          )}
         </button>
       )}
 
