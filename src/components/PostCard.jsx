@@ -33,6 +33,7 @@ import { BadgeCheck } from "lucide-react";
 
 // Coordinates autoplay across all PostCards in the feed.
 let activeFeedVideo = null;
+let feedAudioUnlocked = false;
 
 const defaultProfile =
   "https://africsocial-api-dev.xto1971.workers.dev/uploads/profiles/default-profile.png";
@@ -374,6 +375,23 @@ const openMedia = (index) => {
 
     const observedVideos = videoRefs.current.filter(Boolean);
 
+    const unlockAudio = () => {
+      if (feedAudioUnlocked) return;
+
+      feedAudioUnlocked = true;
+
+      const current = activeFeedVideo;
+      if (current && !current.paused && current.muted) {
+        current.muted = false;
+        current.play().catch(() => {
+          current.muted = true;
+        });
+      }
+    };
+
+    document.addEventListener("pointerdown", unlockAudio, true);
+    document.addEventListener("keydown", unlockAudio, true);
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -383,7 +401,6 @@ const openMedia = (index) => {
 
           if (!shouldPlay) {
             video.pause();
-            video.muted = true;
 
             if (video.dataset.isReel === "true") {
               video.dispatchEvent(
@@ -396,25 +413,20 @@ const openMedia = (index) => {
             if (activeFeedVideo === video) {
               activeFeedVideo = null;
             }
-
             return;
           }
 
           if (activeFeedVideo && activeFeedVideo !== video) {
             activeFeedVideo.pause();
-            activeFeedVideo.muted = true;
           }
 
           videoRefs.current.forEach((otherVideo) => {
             if (otherVideo && otherVideo !== video) {
               otherVideo.pause();
-              otherVideo.muted = true;
             }
           });
 
           if (video.dataset.isReel === "true") {
-            video.muted = video.dataset.hasSeparateAudio === "true";
-
             video.dispatchEvent(
               new CustomEvent("reelvisibilitychange", {
                 detail: { visible: true },
@@ -427,22 +439,30 @@ const openMedia = (index) => {
               }
               return;
             }
-          } else {
-            video.muted = false;
           }
 
           activeFeedVideo = video;
 
-          video.play().catch(() => {
-            if (activeFeedVideo === video) {
-              activeFeedVideo = null;
-            }
+          // Request audible playback first. Fall back to muted playback
+          // when the browser blocks autoplay with sound.
+          video.muted = false;
 
-            if (video.dataset.isReel === "true") {
-              video.dispatchEvent(
-                new CustomEvent("reelplaybackblocked")
-              );
-            }
+          video.play().catch(() => {
+            if (activeFeedVideo !== video || !video.isConnected) return;
+
+            video.muted = true;
+
+            video.play().catch(() => {
+              if (activeFeedVideo === video) {
+                activeFeedVideo = null;
+              }
+
+              if (video.dataset.isReel === "true") {
+                video.dispatchEvent(
+                  new CustomEvent("reelplaybackblocked")
+                );
+              }
+            });
           });
         });
       },
@@ -455,10 +475,12 @@ const openMedia = (index) => {
     return () => {
       observer.disconnect();
 
+      document.removeEventListener("pointerdown", unlockAudio, true);
+      document.removeEventListener("keydown", unlockAudio, true);
+
       observedVideos.forEach((video) => {
         if (activeFeedVideo === video) {
           video.pause();
-          video.muted = true;
           activeFeedVideo = null;
         }
       });

@@ -104,7 +104,7 @@ const InlineReelMedia = ({ post, videoRef, onOpen }) => {
     if (!element) return;
 
     element.dataset.userPaused = "false";
-    element.play().catch(() => {});
+    element.play().catch(() => setIsPlaying(false));
   };
 
   const pauseVideo = (event) => {
@@ -183,7 +183,10 @@ const InlineReelMedia = ({ post, videoRef, onOpen }) => {
         data-user-paused="false"
         data-has-separate-audio={hasSeparateAudio ? "true" : "false"}
         data-has-music={hasMusic ? "true" : "false"}
-        onPlay={() => setIsPlaying(true)}
+        onPlay={() => setIsPlaying(false)}
+        onPlaying={() => setIsPlaying(true)}
+        onWaiting={() => setIsPlaying(false)}
+        onStalled={() => setIsPlaying(false)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
         onClick={(event) => {
