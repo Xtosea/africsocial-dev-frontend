@@ -3,6 +3,8 @@ import MusicLibrary from "./MusicLibrary";
 import StickerLibrary from "./StickerLibrary";
 import ReelStickerEditor from "./ReelStickerEditor";
 import TextEditor from "./TextEditor";
+import CheckInLocation from "../location/CheckInLocation";
+import FriendTagPicker from "../friends/FriendTagPicker";
 
 const ReelUploadModal = ({
   preview,
@@ -29,6 +31,8 @@ const ReelUploadModal = ({
   setReelLocation,
   taggedFriendsInput = "",
   setTaggedFriendsInput,
+  friends = [], friendsLoading = false, friendsError = "",
+  selectedTaggedFriends = [], setSelectedTaggedFriends,
   hashtagsInput = "",
   setHashtagsInput,
   allowComments = true,
@@ -68,6 +72,8 @@ const ReelUploadModal = ({
   const cameraStreamRef = useRef(null);
   const recorderRef = useRef(null);
   const recordingTimerRef = useRef(null);
+  const recordingStartedAtRef = useRef(0);
+  const recordingStoppedAtRef = useRef(0);
   const recordingChunksRef = useRef([]);
   const discardRecordingRef = useRef(false);
   const voiceOverStreamRef = useRef(null);
@@ -197,11 +203,14 @@ const ReelUploadModal = ({
       };
 
       recorder.onstop = () => {
+        const stoppedAt = recordingStoppedAtRef.current || Date.now();
+        const elapsedMs = stoppedAt - recordingStartedAtRef.current;
+        const validDuration = elapsedMs >= 1000 && elapsedMs <= 60000;
         const blob = new Blob(recordingChunksRef.current, {
           type: recorder.mimeType || "video/webm",
         });
 
-        if (!discardRecordingRef.current && blob.size > 0) {
+        if (discardRecordingRef.current === false && validDuration && blob.size > 0) {
           const extension = blob.type.includes("mp4") ? "mp4" : "webm";
           const file = new File(
             [blob],
@@ -210,6 +219,8 @@ const ReelUploadModal = ({
           );
 
           onVideoRecorded?.(file);
+        } else if (discardRecordingRef.current === false && validDuration === false) {
+          setCameraError('Recordings must be between 1 and 60 seconds.');
         }
 
         stream.getTracks().forEach((track) => track.stop());
@@ -224,26 +235,28 @@ const ReelUploadModal = ({
         }
       };
 
-      recorder.start(250);
-      setIsRecording(true);
-      setRecordingSeconds(0);
+      recordingStartedAtRef.current = Date.now();
+        recordingStoppedAtRef.current = 0;
+        recorder.start(250);
+        setIsRecording(true);
+        setRecordingSeconds(0);
 
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((current) => {
-          if (current >= 59) {
-            if (recorder.state === "recording") recorder.stop();
-            return 60;
+        recordingTimerRef.current = setInterval(() => {
+          const elapsedMs = Date.now() - recordingStartedAtRef.current;
+          setRecordingSeconds(Math.min(60, Math.floor(elapsedMs / 1000)));
+          if (elapsedMs >= 60000 && recorder.state === "recording") {
+            recordingStoppedAtRef.current = recordingStartedAtRef.current + 60000;
+            recorder.stop();
           }
-          return current + 1;
-        });
-      }, 1000);
-    } catch (error) {
+        }, 200);
+        } catch (error) {
       setCameraError(error?.message || "Could not start recording.");
     }
   };
 
   const stopRecording = () => {
     if (recorderRef.current?.state === "recording") {
+      recordingStoppedAtRef.current = Date.now();
       recorderRef.current.stop();
     }
   };
@@ -458,7 +471,7 @@ const ReelUploadModal = ({
                       { id: "text", icon: "T", label: "Text" },
                       { id: "adjustments", icon: "🎚️", label: "Adjust" },
                       { id: "voiceover", icon: "🎙️", label: "Voice-over" },
-                    ].map((item) => (
+                    ].filter((item) => activePanel == null || item.id === activePanel).map((item) => (
                       <button
                         key={item.id}
                         type="button"
@@ -475,7 +488,8 @@ const ReelUploadModal = ({
                       </button>
                     ))}
 
-                    <button
+                    {activePanel == null && (
+<button
                       type="button"
                       onClick={openCamera}
                       disabled={loading || voiceOverRecording}
@@ -484,6 +498,7 @@ const ReelUploadModal = ({
                       <span className="text-xl">●</span>
                       Record
                     </button>
+)}
                   </div>
 
                   {activePanel && (
@@ -496,13 +511,7 @@ const ReelUploadModal = ({
                           {activePanel === "adjustments" && "Adjust video"}
                           {activePanel === "voiceover" && "Voice-over"}
                         </h3>
-                        <button
-                          type="button"
-                          onClick={() => setActivePanel(null)}
-                          className="rounded-lg px-3 py-1 text-sm text-white/70 hover:bg-white/10"
-                        >
-                          Close
-                        </button>
+                        <div className="flex gap-2"><button type="button" onClick={() => setActivePanel(null)} className="rounded-lg px-3 py-1 text-sm text-white/70 hover:bg-white/10">Cancel</button><button type="button" onClick={() => setActivePanel(null)} className="rounded-lg bg-blue-600 px-3 py-1 text-sm font-semibold text-white hover:bg-blue-500">Done</button></div>
                       </div>
 
                       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -739,33 +748,30 @@ const ReelUploadModal = ({
                 </p>
               </section>
 
+
               <section>
                 <label className="mb-2 block text-sm font-semibold">
-                  Tag people
+                  Tag friends
                 </label>
-                <input
-                  type="text"
-                  value={taggedFriendsInput}
-                  onChange={(event) => setTaggedFriendsInput?.(event.target.value)}
-                  placeholder="Enter usernames separated by commas"
-                  className="w-full rounded-xl border border-zinc-700 bg-black p-3 text-sm text-white outline-none focus:border-blue-500"
+                <FriendTagPicker
+                  friends={friends}
+                  loading={friendsLoading}
+                  error={friendsError}
+                  selectedIds={selectedTaggedFriends}
+                  onChange={setSelectedTaggedFriends}
+                  inputValue={taggedFriendsInput}
+                  setInputValue={setTaggedFriendsInput}
                 />
-                <p className="mt-1 text-xs text-white/40">
-                  Enter the usernames you want to tag.
-                </p>
               </section>
 
               <section>
                 <label className="mb-2 block text-sm font-semibold">
-                  Location
+                  Check in
                 </label>
-                <input
-                  type="text"
+                <CheckInLocation
                   value={reelLocation}
-                  onChange={(event) => setReelLocation?.(event.target.value)}
-                  maxLength={200}
-                  placeholder="Add a location"
-                  className="w-full rounded-xl border border-zinc-700 bg-black p-3 text-sm text-white outline-none focus:border-blue-500"
+                  onChange={setReelLocation}
+                  disabled={loading}
                 />
               </section>
 

@@ -2,6 +2,10 @@ import React, { useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Draggable from "react-draggable";
 import MediaUpload from "../MediaUpload";
+import MusicLibrary from "../stories/MusicLibrary";
+import StickerLibrary from "../reels/StickerLibrary";
+import CheckInLocation from "../location/CheckInLocation";
+import FriendTagPicker from "../friends/FriendTagPicker";
 
 
 
@@ -56,7 +60,11 @@ const PostEditor = ({
   setTagInput,
 
   applyAI,
-  handleTagFriends,
+  friends = [],
+  friendsLoading = false,
+  friendsError = "",
+  selectedTaggedFriends = [],
+  setSelectedTaggedFriends,
 
   onCancel,
 
@@ -342,7 +350,23 @@ useEffect(() => {
               borderRadius: "8px",
             }}
           >
-            {sticker.emoji}
+            {sticker.url ? (
+              <img
+                src={sticker.url}
+                alt={sticker.name || "Sticker"}
+                draggable={false}
+                className="object-contain pointer-events-none"
+                style={{
+                  width: `${sticker.size || 60}px`,
+                  height: `${sticker.size || 60}px`,
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            ) : (
+              sticker.emoji
+            )}
           </div>
         </Draggable>
       ))}
@@ -584,8 +608,10 @@ Color
       bg-black/90
       p-4
       w-full
-      max-h-[35vh]
-      overflow-y-auto
+      max-h-[55vh]
+      overflow-hidden
+      flex
+      flex-col
       backdrop-blur-md
     "
   >
@@ -692,80 +718,146 @@ Color
 
     {/* STICKERS */}
     {activeTool === "sticker" && (
-      <div className="flex flex-wrap gap-4 mt-6">
+      <div className="mt-7 flex min-h-0 flex-1 flex-col gap-3">
+        <p className="shrink-0 text-sm text-white/80">
+          Choose stickers, then select one to resize or move it.
+        </p>
 
-        {["🔥","❤️","😂","😎","🎉","💯"].map(
-          (emoji)=>(
+        {selectedSticker !== null && stickers[selectedSticker] && (
+          <div className="shrink-0 space-y-2 rounded-lg bg-white/10 p-3 text-white">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="sticker-size" className="text-sm font-medium">
+                Sticker size
+              </label>
+              <span className="text-sm">
+                {stickers[selectedSticker].size || 60}px
+              </span>
+            </div>
+
+            <input
+              id="sticker-size"
+              type="range"
+              min="20"
+              max="180"
+              step="5"
+              value={stickers[selectedSticker].size || 60}
+              onChange={(event) => {
+                const newSize = Number(event.target.value);
+                setStickers((previous) =>
+                  previous.map((item, index) =>
+                    index === selectedSticker
+                      ? { ...item, size: newSize }
+                      : item
+                  )
+                );
+              }}
+              className="w-full accent-blue-500"
+              aria-label="Resize selected sticker"
+            />
+
             <button
-  type="button"
-  key={emoji}
-  className="text-4xl"
-              onClick={() =>
-                setStickers(prev=>[
-                  ...prev,
-                  {
-                    emoji,
-                    x:100,
-                    y:100,
-                    size:60
-                  }
-                ])
-              }
+              type="button"
+              onClick={() => {
+                setStickers((previous) =>
+                  previous.filter((_, index) => index !== selectedSticker)
+                );
+                setSelectedSticker(null);
+              }}
+              className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white"
             >
-              {emoji}
+              Remove selected sticker
             </button>
-          )
+          </div>
         )}
 
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <StickerLibrary
+            onSelect={(sticker) => {
+              const index = stickers.length;
+
+              setStickers((previous) => [
+                ...previous,
+                {
+                  ...sticker,
+                  emoji: sticker.emoji || "",
+                  x: 100,
+                  y: 100,
+                  size: 60,
+                },
+              ]);
+
+              setSelectedSticker(index);
+            }}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setActiveTool(null)}
+          className="w-full shrink-0 rounded-xl bg-blue-600 py-3 font-semibold text-white"
+        >
+          Done
+        </button>
       </div>
     )}
 
-
-
     {activeTool === "music" && (
   <div className="mt-6 space-y-3">
-
-    {music?.url && (
-      <audio
-        controls
-        src={music.url}
-        className="w-full"
-      />
+    {music ? (
+      <div className="rounded-lg bg-white/10 p-3 text-white">
+        <p className="font-semibold">
+          Selected: {music.title || "Music"}
+        </p>
+        {(music.audioUrl || music.url) && (
+          <audio
+            controls
+            src={music.audioUrl || music.url}
+            className="mt-2 w-full"
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => setMusic(null)}
+          className="mt-2 rounded bg-red-600 px-3 py-2 text-white"
+        >
+          Remove selected music
+        </button>
+      </div>
+    ) : (
+      <p className="text-sm text-white/80">
+        Choose a track from the Story Music Library below.
+      </p>
     )}
 
-    {musicList?.map(song => (
-      <button
-        key={song._id}
-        type="button"
-        onClick={() => setMusic(song)}
-        className="
-          w-full
-          p-3
-          rounded-lg
-          bg-white/10
-          text-white
-        "
-      >
-        🎵 {song.title}
-      </button>
-    ))}
+    {musicList?.length > 0 ? (
+      <MusicLibrary
+        songs={musicList}
+        onSelect={(song) => {
+          const audioUrl = song.audioUrl || song.url || "";
+          if (!audioUrl) {
+            alert("This track has no playable audio URL.");
+            return;
+          }
+          setMusic({ ...song, url: audioUrl, audioUrl });
+        }}
+      />
+    ) : (
+      <p className="rounded-lg bg-white/10 p-3 text-white">
+        No music tracks are available yet. Upload tracks using the existing
+        Story Music Uploader, then reopen the composer.
+      </p>
+    )}
 
     <button
       type="button"
       onClick={() => setActiveTool(null)}
-      className="
-        w-full
-        bg-green-600
-        text-white
-        py-3
-        rounded-lg
-      "
+      className="w-full rounded-lg bg-green-600 py-3 text-white"
     >
-      Use Music
+      Use Selected Music
     </button>
-
   </div>
 )}
+
 
 
     {/* COLOR */}
@@ -796,37 +888,20 @@ Color
 
     {/* LOCATION */}
     {activeTool === "location" && (
-<div className="mt-6 space-y-3">
-
-<input
- value={location}
- onChange={(e)=>setLocation(e.target.value)}
- placeholder="Add location..."
- className="
- w-full
- p-3
- rounded-lg
- text-black
- "
-/>
-
-<button
- type="button"
- onClick={()=>setActiveTool(null)}
- className="
- w-full
- bg-blue-600
- text-white
- py-3
- rounded-lg
- "
->
- Done
-</button>
-
-</div>
-)}
-
+      <div className="mt-6 space-y-3">
+        <CheckInLocation
+          value={location}
+          onChange={setLocation}
+        />
+        <button
+          type="button"
+          onClick={() => setActiveTool(null)}
+          className="w-full rounded-lg bg-blue-600 py-3 text-white"
+        >
+          Done
+        </button>
+      </div>
+    )}
 
     {/* FEELING */}
     {activeTool === "feeling" && (
@@ -868,37 +943,26 @@ Color
 
     {/* TAG */}
     {activeTool === "tag" && (
-<div className="mt-6 space-y-3">
+      <div className="mt-6 space-y-3">
+        <FriendTagPicker
+          friends={friends}
+          loading={friendsLoading}
+          error={friendsError}
+          selectedIds={selectedTaggedFriends}
+          onChange={setSelectedTaggedFriends}
+          inputValue={tagInput}
+          setInputValue={setTagInput}
+        />
+        <button
+          type="button"
+          onClick={() => setActiveTool(null)}
+          className="w-full rounded-lg bg-blue-600 py-3 text-white"
+        >
+          Done
+        </button>
+      </div>
+    )}
 
-<input
- value={tagInput}
- onChange={(e)=>handleTagFriends(e.target.value)}
- placeholder="Tag friends..."
- className="
- w-full
- p-3
- rounded-lg
- text-black
- "
-/>
-
-<button
- type="button"
- onClick={()=>setActiveTool(null)}
- className="
- bg-blue-600
- text-white
- w-full
- py-3
- rounded-lg
- "
->
- Done
-</button>
-
-</div>
-)}
-          
     {activeTool === "ai" && (
       <div className="flex gap-3 mt-6">
 
@@ -942,7 +1006,7 @@ Color
  {music?.url && (
   <audio
     ref={audioRef}
-    src={music.url}
+    src={music.audioUrl || music.url}
     preload="metadata"
   />
 )}
@@ -962,8 +1026,8 @@ Color
     setMediaFiles={setMediaFiles}  
   />  
 </div>
-‎
-‎
+
+
 
 
     </div>

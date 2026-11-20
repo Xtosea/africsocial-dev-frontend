@@ -18,6 +18,7 @@ import BoostModal from "./BoostModal";
 import renderContentWithLinks from "../utils/renderContentWithLinks";
 
 import LinkPreview from "./LinkPreview";
+import InlineReelMedia from "./reels/InlineReelMedia";
 
 import extractUrls from "../utils/extractUrls";
 import {
@@ -403,19 +404,19 @@ const openMedia = (index) => {
                   }
                 );
 
-                video.muted = false;
-
-                video
-                  .play()
-                  .catch(() => {});
+                if (video.dataset.isReel === "true" && video.dataset.userPaused === "true") return;
+                  video.muted = video.dataset.isReel === "true"
+                    ? video.dataset.hasSeparateAudio === "true"
+                    : false;
+                  video.play().catch(() => {});
 
               } else {
-
-                video.pause();
-
-                video.muted = true;
-
-              }
+                  video.pause();
+                  video.muted = true;
+                  if (video.dataset.isReel === "true") {
+                    video.dataset.userPaused = "false";
+                  }
+                }
             }
           );
         },
@@ -606,75 +607,80 @@ return (
 
   
   {/* MEDIA */}
-{media.length > 0 && (
-  
-  <div
-  className={
-    media.length > 1
-      ? "grid grid-cols-2 gap-1 bg-black"
-      : "w-full bg-black flex justify-center"
-  }
->
-
- {media.slice(0, 4).map((m, i) => (
-  m.type === "video" ? (
-    <video
-  key={i}
-  ref={(el) => (videoRefs.current[i] = el)}
-  src={m.url}
-  controls
-  playsInline
-  onClick={(e) => {
-    e.stopPropagation();
-    openMedia(i);
-  }}
-      onLoadedMetadata={(e) => {
-        const video = e.target;
-
-        setMediaOrientation((prev) => ({
-          ...prev,
-          [i]:
-            video.videoHeight > video.videoWidth
-              ? "portrait"
-              : "landscape",
-        }));
-      }}
-      className={`
-        w-full
-        rounded-lg
-        ${
-          mediaOrientation[i] === "portrait"
-  ? "w-auto max-w-full max-h-full object-contain"
-  : "w-full h-full object-cover"
+  {media.length > 0 && (
+    (post?.isReel || post?.reel) ? (
+      <InlineReelMedia
+        post={post}
+        videoRef={(element) => {
+          videoRefs.current[0] = element;
+        }}
+        onOpen={() => openMedia(0)}
+      />
+    ) : (
+      <div
+        className={
+          media.length > 1
+            ? "grid grid-cols-2 gap-1 bg-black"
+            : "w-full bg-black flex justify-center"
         }
-      `}
-    />
-  ) : (
+      >
+        {media.slice(0, 4).map((m, i) => (
+          m.type === "video" ? (
+            <video
+              key={i}
+              ref={(el) => (videoRefs.current[i] = el)}
+              src={m.url}
+              controls
+              playsInline
+              onClick={(e) => {
+                e.stopPropagation();
+                openMedia(i);
+              }}
+              onLoadedMetadata={(e) => {
+                const element = e.target;
 
-
-  <img
-  key={i}
-  src={m.url}
-  onClick={(e) => {
-    e.stopPropagation();
-    openMedia(i);
-  }}
-  loading="lazy"
-  className={`
-    cursor-pointer
-    w-full
-    rounded-lg
-    ${
-      mediaOrientation[i] === "portrait"
-        ? "w-auto max-w-full max-h-full object-contain"
-        : "w-full h-full object-cover"
-    }
-  `}
-  alt=""
-/>
-  )
-))}
-</div>
+                setMediaOrientation((prev) => ({
+                  ...prev,
+                  [i]: element.videoHeight > element.videoWidth
+                    ? "portrait"
+                    : "landscape",
+                }));
+              }}
+              className={`
+                w-full
+                rounded-lg
+                ${
+                  mediaOrientation[i] === "portrait"
+                    ? "w-auto max-w-full max-h-full object-contain"
+                    : "w-full h-full object-cover"
+                }
+              `}
+            />
+          ) : (
+            <img
+              key={i}
+              src={m.url}
+              onClick={(e) => {
+                e.stopPropagation();
+                openMedia(i);
+              }}
+              loading="lazy"
+              className={`
+                cursor-pointer
+                w-full
+                rounded-lg
+                ${
+                  mediaOrientation[i] === "portrait"
+                    ? "w-auto max-w-full max-h-full object-contain"
+                    : "w-full h-full object-cover"
+                }
+              `}
+              alt=""
+            />
+          )
+        ))}
+      </div>
+    )
   )}
 
   {/* EDITOR TEXT */}

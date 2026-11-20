@@ -7,7 +7,7 @@ Suspense,
 
 import MediaUpload from "./MediaUpload";
 
-import { API_BASE } from "../api/api";
+import { API_BASE, fetchWithToken } from "../api/api";
 
 import { useCloudinaryUpload } from "../hooks/useCloudinaryUpload";
 import { useR2Upload } from "../hooks/useR2Upload";
@@ -55,6 +55,9 @@ const [feeling, setFeeling] = useState("");
 const [visibility, setVisibility] = useState("public");
 const [tagInput, setTagInput] = useState("");
 const [taggedFriends, setTaggedFriends] = useState([]);
+const [friends, setFriends] = useState([]);
+const [friendsLoading, setFriendsLoading] = useState(false);
+const [friendsError, setFriendsError] = useState("");
 const [cloudinaryUrl, setCloudinaryUrl] = useState("");
 const [preview, setPreview] = useState("");
 
@@ -173,21 +176,6 @@ const applyAI = async (effect) => {
   }
 };
 // =========================
-// HANDLE TAG FRINDS 
-// =========================
-const handleTagFriends = (value) => {
-  setTagInput(value);
-
-  setTaggedFriends(
-    value
-      .split(",")
-      .map((friend) => friend.trim())
-      .filter(Boolean)
-  );
-};
-
-
-// =========================
 // HANDLE CANCEL 
 // =========================
 
@@ -235,6 +223,49 @@ useEffect(() => {
 
 
 // =========================
+// =========================
+// FRIENDS FOR POST TAGGING
+// =========================
+useEffect(() => {
+  let cancelled = false;
+
+  const loadPostFriends = async () => {
+    if (!token) {
+      setFriends([]);
+      setFriendsError("Please log in to tag friends.");
+      return;
+    }
+
+    try {
+      setFriendsLoading(true);
+      setFriendsError("");
+
+      const data = await fetchWithToken(
+        `${API_BASE}/api/friends/list`,
+        token
+      );
+
+      if (!cancelled) {
+        setFriends(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      if (!cancelled) {
+        setFriendsError(error.message || "Failed to load friends.");
+      }
+    } finally {
+      if (!cancelled) {
+        setFriendsLoading(false);
+      }
+    }
+  };
+
+  loadPostFriends();
+
+  return () => {
+    cancelled = true;
+  };
+}, [token]);
+
 // SUBMIT POST
 // =========================
 
@@ -379,6 +410,10 @@ if (!res.ok) {
   throw new Error(data.error || "Post failed");
 }
     setNewPost("");
+    setLocation("");
+    setFeeling("");
+    setTagInput("");
+    setTaggedFriends([]);
     setVisibility("public");
     setMediaFiles([]);
     setMusic(null);
@@ -499,7 +534,11 @@ setFeeling={setFeeling}
 tagInput={tagInput}
 setTagInput={setTagInput}
 
-handleTagFriends={handleTagFriends}
+friends={friends}
+friendsLoading={friendsLoading}
+friendsError={friendsError}
+selectedTaggedFriends={taggedFriends}
+setSelectedTaggedFriends={setTaggedFriends}
 
 handleSubmitPost={handleSubmitPost}
 

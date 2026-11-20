@@ -21,6 +21,7 @@ const ReelCard = ({
 
   const [showHeart, setShowHeart] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const watchSessionIdRef = useRef(
     globalThis.crypto?.randomUUID?.() ||
@@ -139,9 +140,10 @@ const ReelCard = ({
       }
     }
 
-    const playPromise = audio.play();
     setMusicEnabled(true);
-    playPromise?.catch(() => setMusicEnabled(false));
+    if (video && !video.paused) {
+      audio.play().catch(() => setMusicEnabled(false));
+    }
   };
 
   const handleWatchTimeUpdate = (event) => {
@@ -193,20 +195,55 @@ const ReelCard = ({
   };
 
   const handleVideoPlay = (event) => {
-    lastCurrentTimeRef.current =
-      Number(event.currentTarget.currentTime) || 0;
+    const video = event.currentTarget;
+    video.dataset.userPaused = "false";
+    setIsPlaying(true);
+    lastCurrentTimeRef.current = Number(video.currentTime) || 0;
 
     recordView(reel._id);
-    syncMusic(event.currentTarget);
-    syncVoiceOver(event.currentTarget);
+    syncMusic(video);
+    syncVoiceOver(video);
   };
 
   const handleVideoPause = (event) => {
-    lastCurrentTimeRef.current =
-      Number(event.currentTarget.currentTime) || 0;
+    const video = event.currentTarget;
+    setIsPlaying(false);
+    lastCurrentTimeRef.current = Number(video.currentTime) || 0;
 
     audioRef.current?.pause();
     voiceOverRef.current?.pause();
+  };
+
+  const playVideo = (event) => {
+    event.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    video.dataset.userPaused = "false";
+    video.play().catch(() => setIsPlaying(false));
+  };
+
+  const pauseVideo = (event) => {
+    event.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    video.dataset.userPaused = "true";
+    video.pause();
+  };
+
+  const stopVideo = (event) => {
+    event.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    video.dataset.userPaused = "true";
+    video.pause();
+    try {
+      video.currentTime = 0;
+    } catch {
+      // Video metadata may not have loaded yet.
+    }
+    audioRef.current?.pause();
+    voiceOverRef.current?.pause();
+    lastCurrentTimeRef.current = 0;
   };
 
   const handleDoubleTap = () => {
@@ -232,12 +269,15 @@ const ReelCard = ({
             }
           }}
           data-index={index}
+          data-is-reel="true"
+          data-user-paused="false"
+          data-has-separate-audio={hasMusic || hasVoiceOver ? "true" : "false"}
           data-has-music={hasMusic ? "true" : "false"}
           src={reel.media?.[0]?.url}
           className="h-full w-full object-cover"
           style={{ filter: videoFilter }}
           playsInline
-          muted={hasMusic}
+          muted={hasMusic || hasVoiceOver}
           loop
           preload={
             isActive
@@ -318,6 +358,30 @@ const ReelCard = ({
 
         {/* Dark Gradient */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+
+          {/* Clear playback controls; keep taps separate from Reel actions. */}
+          <div
+            className="absolute left-3 top-20 z-30 flex items-center gap-2"
+            onClick={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={isPlaying ? pauseVideo : playVideo}
+              aria-label={isPlaying ? "Pause Reel" : "Play Reel"}
+              className="rounded-full bg-black/70 px-4 py-2 text-sm font-semibold text-white shadow"
+            >
+              {isPlaying ? "Ⅱ Pause" : "▶ Play"}
+            </button>
+            <button
+              type="button"
+              onClick={stopVideo}
+              aria-label="Stop Reel and return to the beginning"
+              className="rounded-full bg-black/70 px-4 py-2 text-sm font-semibold text-white shadow"
+            >
+              ■ Stop
+            </button>
+          </div>
 
         {/* Double-tap Heart */}
         {showHeart && (

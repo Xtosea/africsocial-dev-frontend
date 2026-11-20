@@ -15,6 +15,7 @@ function ReelStickerItem({ sticker, width, height, onUpdate, onRemove }) {
       nodeRef={nodeRef}
       bounds="parent"
       position={{ x, y }}
+      cancel=".reel-sticker-controls, .reel-sticker-controls *"
       onStop={(_, data) =>
         onUpdate?.(sticker.id, {
           x: Math.round(clamp(data.x / width, 0, 1) * 1000),
@@ -41,7 +42,11 @@ function ReelStickerItem({ sticker, width, height, onUpdate, onRemove }) {
             className="h-full w-full select-none object-contain"
           />
 
-          <div className="absolute -bottom-8 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-black/90 p-1 shadow-lg">
+
+          </div>
+
+
+          <div className="reel-sticker-controls absolute -bottom-8 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-black/90 p-1 shadow-lg" onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onTouchStart={(event) => event.stopPropagation()}>
             <button
               type="button"
               aria-label="Delete sticker"
@@ -98,7 +103,7 @@ function ReelStickerItem({ sticker, width, height, onUpdate, onRemove }) {
               ↻
             </button>
           </div>
-        </div>
+
       </div>
     </Draggable>
   );
